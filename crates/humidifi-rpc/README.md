@@ -1,6 +1,6 @@
 # humidifi-rpc
 
-Sample crate that builds a **direct** HumidiFi swap instruction (v1 / v2 / v3) from `cfg/setup.toml`, fetches the required accounts over RPC, and **simulates** the signed transaction (does not send).
+Self-contained sample: discover HumidiFi pool accounts over RPC, build a **direct** swap ix (v1 / v2 / v3), fetch those accounts, and **simulate** (no send).
 
 ## Config (`config.json`)
 
@@ -8,42 +8,44 @@ Sample crate that builds a **direct** HumidiFi swap instruction (v1 / v2 / v3) f
 {
   "rpc_url": "https://api.mainnet-beta.solana.com",
   "keypair_path": "./payer.json",
-  "setup_path": "./cfg/setup.toml",
-  "pool": "FksffEqnBRixYGR791Qw2MgdU7zNCpHVFYBL4Fa4qVuH",
   "version": "v3",
   "amount_in": 1000000,
-  "direction": 0
+  "direction": 0,
+  "pool": "FksffEqnBRixYGR791Qw2MgdU7zNCpHVFYBL4Fa4qVuH",
+  "base_mint": "So11111111111111111111111111111111111111112",
+  "quote_mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 }
 ```
 
-Paths (`keypair_path`, `setup_path`) are relative to the **current working directory** (run from the repo root).
-
 | Field | Meaning |
 | --- | --- |
-| `keypair_path` | Solana keypair JSON (fee payer + swap authority) |
-| `pool` | HumidiFi market pubkey (must exist under the chosen version in `setup.toml`) |
+| `pool` | HumidiFi market pubkey (owns the vault token accounts) |
+| `base_mint` / `quote_mint` | Optional; select which vaults when the market owns many TAs |
 | `version` | `v1`, `v2`, or `v3` |
-| `amount_in` | Raw token amount |
 | `direction` | `0` = base→quote, `1` = quote→base |
 
-Copy the example and edit paths:
+## Account discovery
 
-```bash
-cp crates/humidifi-rpc/config.example.json crates/humidifi-rpc/config.json
-```
+1. **Vaults** — `getTokenAccountsByOwner(pool)` (market is the vault authority)
+2. **v2/v3 `add1` + `vote`** — scanned from the latest successful HumidiFi swap ix for that market (`add1` changes every swap; `vote` is consistently Jito1)
+3. **Fresh state** — `getMultipleAccounts` for pool + user ATAs before simulate
+
+## Why `vote` is Jito1
+
+`J1to1yufRnoWn81KYg1XkTWzmKjnYSnmE2VY8DGUJ9Qv` is the **Jito1** validator vote account. Live HumidiFi v2/v3 swaps on these pools pass it as a readonly account. It is not an arbitrary placeholder: recent on-chain swaps keep using this same vote account while `add1` rotates. Arbitrary other vote accounts are unlikely to work if the program checks that account (e.g. leader/slot timing tied to that validator). Some older static configs used `11111111…` as a stub for unused markets, but successful mainnet swaps use Jito1.
 
 ## Run
-
-From the repo root:
 
 ```bash
 cargo run -p humidifi-rpc -- --config crates/humidifi-rpc/config.json
 ```
 
-## What it does
 
-1. Loads `config.json` + HumidiFi markets from `setup_path`
-2. Derives user base/quote ATAs for the payer
-3. Fetches pool + user accounts via `getMultipleAccounts`
-4. Builds a direct HumidiFi program ix (`build_humidifi_v1_ix` / `v2` / `v3`)
-5. Signs and calls `simulateTransaction` — prints CU, logs, and err
+
+## Txns
+
+### V1:
+  Txn: Ezi3nLfKhrFiKUYUGoZ7KtrTwf2pTxeEn1BMEKFiUhf5eKZ3docDb1i8pneG9HcXnXte1NE32QQ7Q53XWd6gKLJ
+  Price:
+  - Market rate: $76.6
+  - Swap rate: $74.9

@@ -34,20 +34,76 @@ impl std::fmt::Display for SwapVersion {
     }
 }
 
+fn deser_pubkey<'de, D>(deserializer: D) -> Result<Pubkey, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    Pubkey::from_str(&s).map_err(serde::de::Error::custom)
+}
+
+fn deser_opt_pubkey<'de, D>(deserializer: D) -> Result<Option<Pubkey>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let opt = Option::<String>::deserialize(deserializer)?;
+    match opt {
+        None => Ok(None),
+        Some(s) => Pubkey::from_str(&s).map(Some).map_err(serde::de::Error::custom),
+    }
+}
+
+/// Resolved pool accounts used to build the swap ix (discovered via RPC).
+#[derive(Debug, Clone)]
+pub struct PoolAccounts {
+    pub market: Pubkey,
+    pub base_ta: Pubkey,
+    pub quote_ta: Pubkey,
+    pub token0_mint: Pubkey,
+    pub token1_mint: Pubkey,
+    /// Dynamic writable account taken from the latest live HumidiFi swap (v2/v3).
+    pub add1: Pubkey,
+    /// Validator vote account — live swaps use Jito1.
+    pub vote: Pubkey,
+}
+
+impl PoolAccounts {
+    pub fn account_pubkeys(&self, version: SwapVersion) -> Vec<Pubkey> {
+        match version {
+            SwapVersion::V1 => vec![self.market, self.base_ta, self.quote_ta],
+            SwapVersion::V2 | SwapVersion::V3 => {
+                vec![
+                    self.market,
+                    self.base_ta,
+                    self.quote_ta,
+                    self.token0_mint,
+                    self.token1_mint,
+                    self.add1,
+                    self.vote,
+                ]
+            }
+        }
+    }
+}
+
 /// Runtime config loaded from `config.json`.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub rpc_url: String,
     pub keypair_path: String,
-    /// Path to pmm-sim `cfg/setup.toml` (HumidiFi market catalog).
-    pub setup_path: String,
-    /// HumidiFi market / pool pubkey.
-    pub pool: String,
     pub version: SwapVersion,
     /// Amount in raw token units.
     pub amount_in: u64,
-    /// `0` = base→quote, `1` = quote→base (same as pmm-sim HumidiFi).
+    /// `0` = base→quote, `1` = quote→base.
     pub direction: u8,
+    /// HumidiFi market / pool pubkey (vault owner).
+    #[serde(deserialize_with = "deser_pubkey")]
+    pub pool: Pubkey,
+    /// Optional: select which vault mints to use when the market owns multiple TAs.
+    #[serde(default, deserialize_with = "deser_opt_pubkey")]
+    pub base_mint: Option<Pubkey>,
+    #[serde(default, deserialize_with = "deser_opt_pubkey")]
+    pub quote_mint: Option<Pubkey>,
 }
 
 impl Config {
@@ -61,9 +117,5 @@ impl Config {
             eyre::bail!("direction must be 0 (base→quote) or 1 (quote→base), got {}", cfg.direction);
         }
         Ok(cfg)
-    }
-
-    pub fn pool_pubkey(&self) -> eyre::Result<Pubkey> {
-        Pubkey::from_str(&self.pool).map_err(|e| eyre::eyre!("invalid pool pubkey '{}': {e}", self.pool))
     }
 }

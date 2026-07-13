@@ -1,10 +1,8 @@
-use pmm_sim::cfg::Cfg;
 use solana_client::rpc_client::RpcClient;
 use solana_commitment_config::CommitmentConfig;
-use solana_sdk::{account::Account, program_pack::Pack, pubkey::Pubkey};
-use spl_token::state::Account as TokenAccount;
+use solana_sdk::{account::Account, pubkey::Pubkey};
 
-use crate::{config::SwapVersion, ix};
+use crate::config::{PoolAccounts, SwapVersion};
 
 #[derive(Debug)]
 pub struct FetchedAccounts {
@@ -13,10 +11,7 @@ pub struct FetchedAccounts {
 }
 
 /// Fetch pool + user accounts in one `getMultipleAccounts` call.
-pub fn fetch_swap_accounts(
-    client: &RpcClient,
-    keys: &[Pubkey],
-) -> eyre::Result<FetchedAccounts> {
+pub fn fetch_swap_accounts(client: &RpcClient, keys: &[Pubkey]) -> eyre::Result<FetchedAccounts> {
     let response = client.get_multiple_accounts_with_commitment(keys, CommitmentConfig::confirmed())?;
     let slot = response.context.slot;
     let accounts = keys.iter().copied().zip(response.value.into_iter()).collect();
@@ -38,30 +33,19 @@ pub fn print_fetched_accounts(fetched: &FetchedAccounts) {
     }
 }
 
-/// Read mint pubkey from an SPL token account fetched via RPC.
-pub fn mint_from_token_account(client: &RpcClient, token_account: &Pubkey) -> eyre::Result<Pubkey> {
-    let acc = client
-        .get_account(token_account)
-        .map_err(|e| eyre::eyre!("failed to fetch token account {token_account}: {e}"))?;
-    let token = TokenAccount::unpack(&acc.data)
-        .map_err(|e| eyre::eyre!("failed to unpack token account {token_account}: {e}"))?;
-    Ok(token.mint)
-}
-
-/// Collect pubkeys needed for the swap (pool cfg accounts + payer + user ATAs).
+/// Collect pubkeys needed for the swap (pool accounts + payer + user ATAs).
 pub fn collect_keys(
-    setup: &Cfg,
+    pool: &PoolAccounts,
     version: SwapVersion,
-    pool: Pubkey,
     payer: Pubkey,
     user_base_ta: Pubkey,
     user_quote_ta: Pubkey,
-) -> eyre::Result<Vec<Pubkey>> {
-    let mut keys = ix::pool_account_pubkeys(setup, version, pool)?;
+) -> Vec<Pubkey> {
+    let mut keys = pool.account_pubkeys(version);
     keys.push(payer);
     keys.push(user_base_ta);
     keys.push(user_quote_ta);
     keys.sort();
     keys.dedup();
-    Ok(keys)
+    keys
 }

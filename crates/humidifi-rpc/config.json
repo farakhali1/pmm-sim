@@ -1,0 +1,10 @@
+{
+  "rpc_url": "https://api.mainnet-beta.solana.com",
+  "keypair_path": "./payer.json",
+  "version": "v2",
+  "amount_in": 10000,
+  "direction": 0,
+  "pool": "FksffEqnBRixYGR791Qw2MgdU7zNCpHVFYBL4Fa4qVuH",
+  "base_mint": "So11111111111111111111111111111111111111112",
+  "quote_mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+}
