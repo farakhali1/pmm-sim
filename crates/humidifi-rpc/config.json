@@ -1,6 +1,7 @@
 {
   "rpc_url": "https://api.mainnet-beta.solana.com",
   "keypair_path": "./payer.json",
+  "dex": "humidifi",
   "version": "v2",
   "amount_in": 10000,
   "direction": 0,

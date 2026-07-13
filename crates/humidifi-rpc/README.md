@@ -1,13 +1,20 @@
 # humidifi-rpc
 
-Self-contained sample: discover HumidiFi pool accounts over RPC, build a **direct** swap ix (v1 / v2 / v3), fetch those accounts, and **simulate** (no send).
+Build & simulate **direct** PropAMM swaps over RPC for:
 
-## Config (`config.json`)
+- **HumidiFi** (v1 / v2 / v3)
+- **GoonFi**
+- **SolFi** (v2)
+
+Pick the venue with `"dex"` in `config.json`.
+
+## Config
 
 ```json
 {
   "rpc_url": "https://api.mainnet-beta.solana.com",
   "keypair_path": "./payer.json",
+  "dex": "humidifi",
   "version": "v3",
   "amount_in": 1000000,
   "direction": 0,
@@ -19,20 +26,48 @@ Self-contained sample: discover HumidiFi pool accounts over RPC, build a **direc
 
 | Field | Meaning |
 | --- | --- |
-| `pool` | HumidiFi market pubkey (owns the vault token accounts) |
-| `base_mint` / `quote_mint` | Optional; select which vaults when the market owns many TAs |
-| `version` | `v1`, `v2`, or `v3` |
+| `dex` | `humidifi` \| `goonfi` \| `solfi` |
+| `version` | HumidiFi only: `v1` \| `v2` \| `v3` |
+| `pool` | Market pubkey |
 | `direction` | `0` = base→quote, `1` = quote→base |
+| `base_mint` / `quote_mint` | Optional; select vaults when a market owns many TAs |
 
-## Account discovery
+### SolFi example
 
-1. **Vaults** — `getTokenAccountsByOwner(pool)` (market is the vault authority)
-2. **v2/v3 `add1` + `vote`** — scanned from the latest successful HumidiFi swap ix for that market (`add1` changes every swap; `vote` is consistently Jito1)
-3. **Fresh state** — `getMultipleAccounts` for pool + user ATAs before simulate
+```json
+{
+  "dex": "solfi",
+  "pool": "65ZHSArs5XxPseKQbB1B4r16vDxMWnCxHMzogDAqiDUc",
+  "base_mint": "So11111111111111111111111111111111111111112",
+  "quote_mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "cfg": "FmxXDSR9WvpJTCh738D1LEDuhMoA8geCtZgHb3isy7Dp",
+  "oracle": "2ny7eGyZCoeEVTkNLf5HcnJFBKkyA4p4gcrtb3b8y8ou",
+  "amount_in": 1000000,
+  "direction": 0,
+  "rpc_url": "https://api.mainnet-beta.solana.com",
+  "keypair_path": "./payer.json"
+}
+```
 
-## Why `vote` is Jito1
+`cfg` / `oracle` come from [`cfg/setup.toml`](../../cfg/setup.toml). If omitted, those same WSOL-USDC defaults are used. Vaults are still fetched from RPC.
+### GoonFi example
 
-`J1to1yufRnoWn81KYg1XkTWzmKjnYSnmE2VY8DGUJ9Qv` is the **Jito1** validator vote account. Live HumidiFi v2/v3 swaps on these pools pass it as a readonly account. It is not an arbitrary placeholder: recent on-chain swaps keep using this same vote account while `add1` rotates. Arbitrary other vote accounts are unlikely to work if the program checks that account (e.g. leader/slot timing tied to that validator). Some older static configs used `11111111…` as a stub for unused markets, but successful mainnet swaps use Jito1.
+```json
+{
+  "dex": "goonfi",
+  "pool": "4uWuh9fC7rrZKrN8ZdJf69MN1e2S7FPpMqcsyY1aof6K",
+  "amount_in": 1000000,
+  "direction": 0,
+  "rpc_url": "https://api.mainnet-beta.solana.com",
+  "keypair_path": "./payer.json"
+}
+```
+
+## Discovery
+
+1. Vault TAs via `getTokenAccountsByOwner(pool)` when the market owns them
+2. Extra accounts (`add1`/`vote`, SolFi `oracle`/`cfg`, GoonFi `blacklist`) from the latest live swap ix for that market
+3. Fresh state via `getMultipleAccounts` before simulate
 
 ## Run
 
@@ -40,11 +75,9 @@ Self-contained sample: discover HumidiFi pool accounts over RPC, build a **direc
 cargo run -p humidifi-rpc -- --config crates/humidifi-rpc/config.json
 ```
 
-
-
 ## Txns
 
-### V1:
+### Humidifi V1:
   Txn: Ezi3nLfKhrFiKUYUGoZ7KtrTwf2pTxeEn1BMEKFiUhf5eKZ3docDb1i8pneG9HcXnXte1NE32QQ7Q53XWd6gKLJ
   Price:
   - Market rate: $76.6

@@ -1,0 +1,12 @@
+{
+  "rpc_url": "https://api.mainnet-beta.solana.com",
+  "keypair_path": "./payer.json",
+  "dex": "solfi",
+  "amount_in": 10000,
+  "direction": 0,
+  "pool": "65ZHSArs5XxPseKQbB1B4r16vDxMWnCxHMzogDAqiDUc",
+  "base_mint": "So11111111111111111111111111111111111111112",
+  "quote_mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "cfg": "FmxXDSR9WvpJTCh738D1LEDuhMoA8geCtZgHb3isy7Dp",
+  "oracle": "2ny7eGyZCoeEVTkNLf5HcnJFBKkyA4p4gcrtb3b8y8ou"
+}

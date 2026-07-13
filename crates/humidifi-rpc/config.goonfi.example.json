@@ -1,0 +1,8 @@
+{
+  "rpc_url": "https://api.mainnet-beta.solana.com",
+  "keypair_path": "./payer.json",
+  "dex": "goonfi",
+  "amount_in": 1000000,
+  "direction": 0,
+  "pool": "4uWuh9fC7rrZKrN8ZdJf69MN1e2S7FPpMqcsyY1aof6K"
+}

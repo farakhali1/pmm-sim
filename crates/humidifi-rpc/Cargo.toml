@@ -2,7 +2,7 @@
 name = "humidifi-rpc"
 version = "0.1.0"
 edition = "2024"
-description = "Sample crate: build & simulate direct HumidiFi v1/v2/v3 swaps over RPC"
+description = "Sample crate: build & simulate direct HumidiFi / GoonFi / SolFi swaps over RPC"
 publish = false
 
 [[bin]]

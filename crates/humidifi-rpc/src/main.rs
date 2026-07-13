@@ -17,7 +17,10 @@ use solana_sdk::{
 use spl_associated_token_account::get_associated_token_address;
 
 #[derive(Debug, Parser)]
-#[command(name = "humidifi-rpc", about = "Build & simulate direct HumidiFi v1/v2/v3 swaps over RPC")]
+#[command(
+    name = "humidifi-rpc",
+    about = "Build & simulate direct PropAMM swaps (HumidiFi / GoonFi / SolFi) over RPC"
+)]
 struct Cli {
     /// Path to config.json
     #[arg(long, default_value = "config.json")]
@@ -33,8 +36,11 @@ fn main() -> eyre::Result<()> {
     println!("config: {}", cli.config.display());
     println!("rpc: {}", cfg.rpc_url);
     println!("payer: {payer_pubkey}");
+    println!("dex: {}", cfg.dex);
     println!("pool: {}", cfg.pool);
-    println!("version: {}", cfg.version);
+    if matches!(cfg.dex, config::Dex::Humidifi) {
+        println!("humidifi version: {}", cfg.version);
+    }
     println!("amount_in: {}", cfg.amount_in);
     println!(
         "direction: {} ({})",
@@ -44,31 +50,33 @@ fn main() -> eyre::Result<()> {
 
     let client = RpcClient::new_with_commitment(cfg.rpc_url.clone(), CommitmentConfig::confirmed());
 
-    let pool = discover::discover_pool_accounts(&client, cfg.pool, cfg.version, cfg.base_mint, cfg.quote_mint)?;
+    let pool = discover::discover_pool(
+        &client,
+        cfg.dex,
+        cfg.pool,
+        cfg.version,
+        cfg.base_mint,
+        cfg.quote_mint,
+        cfg.cfg,
+        cfg.oracle,
+    )?;
 
-    let user_base_ta = get_associated_token_address(&payer_pubkey, &pool.token0_mint);
-    let user_quote_ta = get_associated_token_address(&payer_pubkey, &pool.token1_mint);
-
+    let user_base_ta = get_associated_token_address(&payer_pubkey, &pool.base_mint());
+    let user_quote_ta = get_associated_token_address(&payer_pubkey, &pool.quote_mint());
+    println!("base_mint:  {}", pool.base_mint());
+    println!("quote_mint: {}", pool.quote_mint());
     println!("user_base_ta:  {user_base_ta}");
     println!("user_quote_ta: {user_quote_ta}");
 
-    let keys = rpc::collect_keys(&pool, cfg.version, payer_pubkey, user_base_ta, user_quote_ta);
+    let keys = rpc::collect_keys(&pool, payer_pubkey, user_base_ta, user_quote_ta);
     let fetched = rpc::fetch_swap_accounts(&client, &keys)?;
     rpc::print_fetched_accounts(&fetched);
 
-    let ix = ix::build_humidifi_ix(
-        cfg.version,
-        &pool,
-        payer_pubkey,
-        user_base_ta,
-        user_quote_ta,
-        cfg.amount_in,
-        cfg.direction,
-    );
+    let ix = ix::build_swap_ix(&pool, payer_pubkey, user_base_ta, user_quote_ta, cfg.amount_in, cfg.direction);
 
     println!(
         "built {} ix: program={} accounts={} data_len={}",
-        cfg.version,
+        cfg.dex,
         ix.program_id,
         ix.accounts.len(),
         ix.data.len()
@@ -83,19 +91,16 @@ fn main() -> eyre::Result<()> {
     let blockhash = client.get_latest_blockhash()?;
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&payer_pubkey), &[&payer], blockhash);
 
-    let sim = client.simulate_transaction(
-        &tx,
-    )?;
-
+    let sim = client.simulate_transaction(&tx)?;
     let value = sim.value;
     println!("--- simulation (slot context {}) ---", sim.context.slot);
     println!("err: {:?}", value.err);
-    // if value.err.is_none(){
-    //     let resp = client.send_and_confirm_transaction(
-    //         &tx,
-    //     )?;
-    //     println!("tx sent: {resp}");
-    // }
+        if value.err.is_none(){
+        let resp = client.send_and_confirm_transaction(
+            &tx,
+        )?;
+        println!("tx sent: {resp}");
+    }
     println!("units_consumed: {:?}", value.units_consumed);
     if let Some(logs) = value.logs {
         println!("logs:");

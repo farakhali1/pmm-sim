@@ -2,7 +2,7 @@ use solana_client::rpc_client::RpcClient;
 use solana_commitment_config::CommitmentConfig;
 use solana_sdk::{account::Account, pubkey::Pubkey};
 
-use crate::config::{PoolAccounts, SwapVersion};
+use crate::config::ResolvedPool;
 
 #[derive(Debug)]
 pub struct FetchedAccounts {
@@ -10,7 +10,6 @@ pub struct FetchedAccounts {
     pub accounts: Vec<(Pubkey, Option<Account>)>,
 }
 
-/// Fetch pool + user accounts in one `getMultipleAccounts` call.
 pub fn fetch_swap_accounts(client: &RpcClient, keys: &[Pubkey]) -> eyre::Result<FetchedAccounts> {
     let response = client.get_multiple_accounts_with_commitment(keys, CommitmentConfig::confirmed())?;
     let slot = response.context.slot;
@@ -33,15 +32,13 @@ pub fn print_fetched_accounts(fetched: &FetchedAccounts) {
     }
 }
 
-/// Collect pubkeys needed for the swap (pool accounts + payer + user ATAs).
 pub fn collect_keys(
-    pool: &PoolAccounts,
-    version: SwapVersion,
+    pool: &ResolvedPool,
     payer: Pubkey,
     user_base_ta: Pubkey,
     user_quote_ta: Pubkey,
 ) -> Vec<Pubkey> {
-    let mut keys = pool.account_pubkeys(version);
+    let mut keys = pool.account_pubkeys();
     keys.push(payer);
     keys.push(user_base_ta);
     keys.push(user_quote_ta);
