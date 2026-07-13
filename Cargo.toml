@@ -1,3 +1,7 @@
+[workspace]
+members = ["crates/humidifi-rpc"]
+resolver = "2"
+
 [package]
 name = "pmm-sim"
 version = "0.2.0"
