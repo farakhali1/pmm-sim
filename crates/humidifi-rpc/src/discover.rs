@@ -61,22 +61,23 @@ fn discover_humidifi(
 
     let (add1, vote) = match version {
         SwapVersion::V1 => (Pubkey::default(), Pubkey::default()),
-        SwapVersion::V2 | SwapVersion::V3 => {
-            let accs = find_program_swap_accounts(client, market, HUMIDIFI_PROGRAM_ID, 14)?;
-            let add1 = accs[12];
-            let vote = accs[13];
-            println!("humidifi add1/vote from latest live swap");
-            println!(
-                "  add1: {} (ephemeral)",
-                add1
-            );
-            println!(
-                "  vote: {} {}",
-                vote,
-                if vote == JITO1_VOTE { "(Jito1)" } else { "" }
-            );
-            (add1, vote)
-        }
+        SwapVersion::V2 | SwapVersion::V3 => (Pubkey::from_str("8AbG9oL3VUv3kQRUmcPQcfjx32q4CVStxyDTe31XMkVK").unwrap(), Pubkey::from_str("Jito111111111111111111111111111111111111111").unwrap()),
+            // TODO: Uncomment this when we have a live swap
+            // let accs = find_program_swap_accounts(client, market, HUMIDIFI_PROGRAM_ID, 14)?;
+            // let add1 = accs[12];
+            // let vote = accs[13];
+            // println!("humidifi add1/vote from latest live swap");
+            // println!(
+            //     "  add1: {} (ephemeral)",
+            //     add1
+            // );
+            // println!(
+            //     "  vote: {} {}",
+            //     vote,
+            //     if vote == JITO1_VOTE { "(Jito1)" } else { "" }
+            // );
+            // (add1, vote)
+        // }
     };
 
     let pool = HumidifiPool {
